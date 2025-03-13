@@ -43,7 +43,7 @@ on:
       kernel_name:
         description: "自定义内核名称"
         required: true
-        default: '-android14-11-g1132d864665d'
+        default: '-android14-11-gd03cb1d7abcd-ab12592111'
 
 jobs:
   build:
