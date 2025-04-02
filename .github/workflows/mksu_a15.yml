@@ -29,20 +29,20 @@ on:
       kernel_name:
         description: "自定义内核名称"
         required: true
-        default: '6.6.77-android15-8-g8a843ce91753-abogki383952401-4k'
+        default: '6.6.30-android15-8-geae86f166c48-abogki367569362-4k'
       ENABLE_MKSU:
         required: true
         type: boolean
         default: true
         description: '是否使用mksu'
-      mksu_branch:
+      mksu_version:
         required: true
         type: choice
-        description: '选择mksu分支'
+        description: '选择mksu版本'
         options:
-        - main
-        - susfs-dev
-        default: 'susfs-dev'
+        - SukiSU
+        - SukiSU-Ultra
+        default: 'SukiSU-Ultra'
       manual_vfs_hook:
         required: true
         type: choice
@@ -81,6 +81,7 @@ jobs:
 
     - name: Download Kernel Source
       run: |
+        sudo apt update
         sudo apt install -y repo bc binutils-dev bison build-essential ca-certificates cmake curl file flex git libelf-dev libssl-dev lld make ninja-build python3-dev texinfo u-boot-tools xz-utils zlib1g-dev libncurses-dev pahole
         cd $GITHUB_WORKSPACE
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b ${{ inputs.susfs_version }}
@@ -100,19 +101,16 @@ jobs:
       if: inputs.ENABLE_MKSU == true
       run: |
         cd $GITHUB_WORKSPACE/android-kernel
-        curl -LSs "https://raw.githubusercontent.com/ShirkNeko/KernelSU/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_branch }}
+        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
+        else
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/KernelSU/main/kernel/setup.sh" | bash -s susfs-dev
+        fi
         cp ../susfs4ksu/kernel_patches/50_add_susfs_in_${{ inputs.susfs_version }}.patch ./common/
         cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
         cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-        cd ./KernelSU
-        if [[ "${{ inputs.mksu_branch }}" == "main" ]]; then
-          cp ./patch/* ./
-          patch --fuzz=3 -p1 < sukisu_susfs.patch || true
-        fi
-        cd ../common
+        cd ./common
         patch -p1 < 50_add_susfs_in_${{ inputs.susfs_version }}.patch || true
-        cp ../../SukiSU_patch/69_hide_stuff.patch ./
-        patch -p1 -F 3 < 69_hide_stuff.patch
         cp ../../qwq/lz4kd.patch ./
         patch -p1 -F 3 < lz4kd.patch
         if [[ "${{ inputs.manual_vfs_hook }}" == "newhook" ]]; then
@@ -124,6 +122,9 @@ jobs:
         else
           cd ..
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
+        fi
+        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
+          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
         fi
         echo "Adding configuration settings to gki_defconfig..."
         echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -202,6 +203,12 @@ jobs:
           -e THINLTO
         make LLVM=1 LLVM_IAS=1 ARCH=arm64 CC="/usr/bin/ccache clang" HOSTCC="/usr/bin/ccache clang" HOSTCXX="/usr/bin/ccache clang++" O=out -j$(nproc)
         cp -r $GITHUB_WORKSPACE/android-kernel/common/out/arch/arm64/boot $GITHUB_WORKSPACE/android-kernel/dist
+        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
+          cd $GITHUB_WORKSPACE/android-kernel/dist
+          cp $GITHUB_WORKSPACE/qwq/patch ./ && chmod +x patch
+          ./patch && mv -f oImage Image
+        fi
+        cp -r $GITHUB_WORKSPACE/android-kernel/common/out/drivers/block/zram/zram.ko $GITHUB_WORKSPACE/android-kernel/dist
 
     - name: Download prebuilt toolchain
       run: |
@@ -251,6 +258,13 @@ jobs:
       with:
         name: Boot_${{ inputs.TAG }}
         path: android-kernel/bootimgs/${{ inputs.TAG }}-boot*
+
+    - name: Upload Zram.ko
+      if: inputs.ENABLE_MKSU == true
+      uses: actions/upload-artifact@v4
+      with:
+        name: Zram_${{ inputs.TAG }}
+        path: android-kernel/dist/zram.ko
 
     - name: Upload AnyKernel3
       if: inputs.ENABLE_MKSU == true
