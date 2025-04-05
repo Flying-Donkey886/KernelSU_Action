@@ -62,16 +62,10 @@ jobs:
       CCACHE_MAXSIZE: "2G"
       CCACHE_HARDLINK: "true"
     steps:
-    - name: Maximize Build Space
-      uses: easimon/maximize-build-space@master
+    - name: Set swap to 10G
+      uses: pierotofy/set-swap-space@master
       with:
-        swap-size-mb: 8192
-        root-reserve-mb: 8192
-        temp-reserve-mb: 2048
-        remove-dotnet: 'true'
-        remove-android: 'true'
-        remove-haskell: 'true'
-        remove-codeql: 'true'
+        swap-size-gb: 10
         
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
@@ -193,8 +187,7 @@ jobs:
           cp $GITHUB_WORKSPACE/qwq/patch ./ && chmod +x patch
           ./patch && mv -f oImage Image
         fi
-        cp -r $GITHUB_WORKSPACE/android-kernel/common/out/drivers/block/zram/zram.ko $GITHUB_WORKSPACE/android-kernel/dist
-
+        
     - name: Download prebuilt toolchain
       run: |
         cd $GITHUB_WORKSPACE
@@ -243,13 +236,6 @@ jobs:
       with:
         name: Boot_${{ inputs.TAG }}
         path: android-kernel/bootimgs/${{ inputs.TAG }}-boot*
-
-    - name: Upload Zram.ko
-      if: inputs.ENABLE_MKSU == true
-      uses: actions/upload-artifact@v4
-      with:
-        name: Zram_${{ inputs.TAG }}
-        path: android-kernel/dist/zram.ko
 
     - name: Upload AnyKernel3
       if: inputs.ENABLE_MKSU == true
