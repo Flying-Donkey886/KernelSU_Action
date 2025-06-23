@@ -33,6 +33,7 @@ on:
         options:
         - susfs-main
         - susfs-dev
+        - susfs-1.5.8
         default: 'susfs-main'
       mksu_kpm:
         required: true
