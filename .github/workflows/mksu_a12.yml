@@ -26,14 +26,21 @@ on:
         required: true
         default: 'Fri Jan 24 18:48:47 UTC 2025'
         description: "自定义构建时间"
+      mksu_variant:
+        required: true
+        type: choice
+        description: '选择mksu类型'
+        options:
+        - sukisu
+        - ksunext
+        default: 'sukisu'
       mksu_version:
         required: true
         type: choice
         description: '选择mksu版本'
         options:
         - susfs-main
-        - susfs-dev
-        - susfs-1.5.8
+        - next
         default: 'susfs-main'
       mksu_kpm:
         required: true
@@ -89,20 +96,60 @@ jobs:
         else
           git clone --recursive https://github.com/aosp-mirror/kernel_common -b ${{ inputs.TAG }} common --depth=1
         fi
-        curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        else
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        fi
         cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./common/
         cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
         cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+        if [[ "${{ inputs.mksu_variant }}" == "ksunext" ]]; then
+          cd ./KernelSU-Next
+          cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch ./
+          patch -p1 --forward < fix_apk_sign.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch ./
+          patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch ./
+          patch -p1 --forward < fix_selinux.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_ksud.c.patch ./
+          patch -p1 --forward < fix_ksud.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch ./
+          patch -p1 --forward < fix_rules.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch ./
+          patch -p1 --forward < fix_sucompat.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
+          patch -p1 --forward < fix_kernel_compat.c.patch
+          cd ..
+        fi
         
         cd ./common
         patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch || true
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "enable" ]]; then
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          patch -p1 -F 3 < syscall_hooks.patch
-          cd ..
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+            cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+            patch -p1 -F 3 < syscall_hooks.patch
+            cd ..
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
+            cd ..
+            echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
         else
           cd ..
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
