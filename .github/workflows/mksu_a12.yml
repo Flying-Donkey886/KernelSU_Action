@@ -133,7 +133,7 @@ jobs:
           cd ..
         else
           cd ./KernelSU
-          git revert --no-edit 355e1c648a0aac3239a4c7e94a1ff5b3ead1e35f
+          git diff 355e1c64^ 355e1c64 | git apply -R
           cd ..
         fi
         
