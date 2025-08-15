@@ -131,6 +131,10 @@ jobs:
           cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
           patch -p1 --forward < fix_kernel_compat.c.patch
           cd ..
+        else
+          cd ./KernelSU
+          git revert --no-edit 355e1c648a0aac3239a4c7e94a1ff5b3ead1e35f
+          cd ..
         fi
         
         cd ./common
