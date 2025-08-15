@@ -133,7 +133,7 @@ jobs:
           cd ..
         else
           cd ./KernelSU
-          git format-patch -1 --stdout --reverse 2a2ddec | patch --fuzz=10 -p1
+          git revert --no-edit 2a2ddec7ef727ccd220a230a828fc23e0869ad78
           cd ..
         fi
         
