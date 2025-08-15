@@ -133,7 +133,7 @@ jobs:
           cd ..
         else
           cd ./KernelSU
-          git diff 355e1c64^ 355e1c64 | git apply -R
+          git format-patch -1 --stdout --reverse 355e1c64 | patch --fuzz=10 -p1
           cd ..
         fi
         
