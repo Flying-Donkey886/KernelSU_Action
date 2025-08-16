@@ -133,7 +133,7 @@ jobs:
           cd ..
         else
           cd ./KernelSU
-          git revert --no-edit 2a2ddec7ef727ccd220a230a828fc23e0869ad78
+          sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
           cd ..
         fi
         
