@@ -55,10 +55,10 @@ on:
         type: choice
         description: '选择钩子类型'
         options:
-        - tracepoint
         - syscall
+        - tracepoint
         - disable
-        default: 'tracepoint'
+        default: 'syscall'
 
 jobs:
   build:
@@ -109,7 +109,7 @@ jobs:
         if [[ "${{ inputs.mksu_variant }}" == "ksunext" ]]; then
           cd ./KernelSU-Next
           cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
-          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch
               
           cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch ./
           patch -p1 --forward < fix_apk_sign.c.patch
@@ -139,12 +139,12 @@ jobs:
         fi
         
         cd ./common
-        patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch || true
+        patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
           if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
             cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-            patch -p1 -F 3 < syscall_hooks.patch
+            patch -p1 --forward -F 3 < syscall_hooks.patch
             cd ..
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
@@ -157,7 +157,7 @@ jobs:
           fi
         elif [[ "${{ inputs.manual_vfs_hook }}" == "tracepoint" ]]; then
           cp ../../patch/sukisu_tracepoint_hooks.patch ./
-          patch -p1 < sukisu_tracepoint_hooks.patch || true
+          patch -p1 --forward -F 3 < sukisu_tracepoint_hooks.patch
           cd ..
           echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
