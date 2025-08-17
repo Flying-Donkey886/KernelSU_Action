@@ -157,7 +157,7 @@ jobs:
           fi
         elif [[ "${{ inputs.manual_vfs_hook }}" == "tracepoint" ]]; then
           cp ../../patch/sukisu_tracepoint_hooks.patch ./
-          patch -p1 -F 3 < sukisu_tracepoint_hooks.patch
+          patch -p1 < sukisu_tracepoint_hooks.patch || true
           cd ..
           echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
