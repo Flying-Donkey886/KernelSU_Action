@@ -1,0 +1,252 @@
+name: Build GKI A12 with MKSU
+on:
+  workflow_dispatch:
+    inputs:
+      TAG:
+        required: true
+        default: "android12-5.10-2024-11"
+      patch_level:
+        required: true
+        type: string
+        default: "2024-11"
+        description: "设置内核补丁级别"
+      kernel_name:
+        required: true
+        default: '-android12-9-00064-gea4a6f067d3f-ab12969919'
+        description: "自定义内核名称"
+      timestamp:
+        required: true
+        default: 'Fri Jan 24 18:48:47 UTC 2025'
+        description: "自定义构建时间"
+      mksu_variant:
+        required: true
+        type: choice
+        description: '选择mksu类型'
+        options:
+        - sukisu
+        - ksunext
+        default: 'sukisu'
+      mksu_version:
+        required: true
+        type: choice
+        description: '选择mksu版本'
+        options:
+        - susfs-main
+        - next
+        default: 'susfs-main'
+      mksu_kpm:
+        required: true
+        type: choice
+        description: '是否开启KPM？'
+        options:
+        - enable
+        - disable
+        default: 'enable'
+      manual_vfs_hook:
+        required: true
+        type: choice
+        description: '选择钩子类型'
+        options:
+        - syscall
+        - tracepoint
+        - disable
+        default: 'syscall'
+
+jobs:
+  build:
+    name: Build ${{ inputs.TAG }}
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_MAXSIZE: "2G"
+      CCACHE_HARDLINK: "true"
+    steps:
+    - name: Set swap to 10G
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 10
+    - uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: gki-kernel-aarch64-${{ inputs.TAG }}
+        max-size: 2G
+    - name: Download Kernel Source
+      run: |
+        cd $GITHUB_WORKSPACE
+        sudo apt-get install repo -y
+        git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10
+        git clone https://github.com/ShirkNeko/SukiSU_patch.git
+        git clone https://github.com/WildPlusKernel/kernel_patches.git
+        git clone https://github.com/wizxy/patch.git
+        
+        git config --global user.name "wizxy"
+        git config --global user.email wizxy@users.noreply.github.com
+        mkdir android-kernel && cd android-kernel
+        repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${{ inputs.TAG }} --repo-rev=v2.16
+        REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${{ inputs.TAG }})
+        DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
+        if grep -q deprecated <<< $REMOTE_BRANCH; then
+          echo "Found deprecated branch: ${{ inputs.TAG }}"
+          sed -i 's/"${{ inputs.TAG }}"/"deprecated\/${{ inputs.TAG }}"/g' $DEFAULT_MANIFEST_PATH
+        fi
+        repo --trace sync -c -j$(nproc --all) --no-tags
+
+        if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        else
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        fi
+        
+        cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./common/
+        cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+        cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+        if [[ "${{ inputs.mksu_variant }}" == "ksunext" ]]; then
+          cd ./KernelSU-Next
+          cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch ./
+          patch -p1 --forward < fix_apk_sign.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch ./
+          patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch ./
+          patch -p1 --forward < fix_selinux.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_ksud.c.patch ./
+          patch -p1 --forward < fix_ksud.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch ./
+          patch -p1 --forward < fix_rules.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch ./
+          patch -p1 --forward < fix_sucompat.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
+          patch -p1 --forward < fix_kernel_compat.c.patch
+          cd ..
+        else
+          cd ./KernelSU
+          sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
+          cd ..
+        fi
+        
+        cd ./common
+        patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
+        
+        if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
+          if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+            cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+            patch -p1 --forward -F 3 < syscall_hooks.patch
+            cd ..
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
+            cd ..
+            echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+        elif [[ "${{ inputs.manual_vfs_hook }}" == "tracepoint" ]]; then
+          cp ../../patch/sukisu_tracepoint_hooks.patch ./
+          patch -p1 --forward -F 3 < sukisu_tracepoint_hooks.patch
+          cd ..
+          echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+        else
+          cd ..
+          echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
+        fi
+        
+        if [[ "${{ inputs.mksu_kpm }}" == "enable" ]]; then
+          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+        fi
+        echo "Adding configuration settings to gki_defconfig..."
+        echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
+        echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+        
+        sed -i '2s/check_defconfig//' ./common/build.config.gki
+        sed -i '$s|echo "\$res"|echo "${{ inputs.kernel_name }}"|' ./common/scripts/setlocalversion
+        perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT ${{ inputs.timestamp }}"}' ./common/scripts/mkcompile_h
+        
+    - name: Build Boot
+      working-directory: android-kernel
+      run: |
+        LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang"
+        cp -r $GITHUB_WORKSPACE/android-kernel/out/*/dist $GITHUB_WORKSPACE/android-kernel/dist
+        if [[ "${{ inputs.mksu_kpm }}" == "enable" ]]; then
+          cd $GITHUB_WORKSPACE/android-kernel/dist
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
+          chmod +x patch
+          ./patch && mv -f oImage Image
+        fi
+    
+    - name: Download prebuilt toolchain
+      run: |
+        cd $GITHUB_WORKSPACE
+        AOSP_MIRROR=https://android.googlesource.com
+        BRANCH=main-kernel-build-2024
+        # Clone necessary prebuilt tools
+        git clone $AOSP_MIRROR/platform/prebuilts/build-tools -b $BRANCH --depth 1 build-tools
+        git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
+        git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
+        pip3 install telethon
+        # Export paths to required tools as environment variables
+        export AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool
+        export GZIP=$GITHUB_WORKSPACE/build-tools/path/linux-x86/gzip
+        export LZ4=$GITHUB_WORKSPACE/build-tools/path/linux-x86/lz4
+        export MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py
+        export UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py
+        cd android-kernel && mkdir bootimgs
+        cp ./dist/Image ./bootimgs
+        cd ./bootimgs
+        GKI_URL=https://dl.google.com/android/gki/gki-certified-boot-${{ github.event.inputs.TAG }}_r1.zip
+        FALLBACK_URL=https://dl.google.com/android/gki/gki-certified-boot-android12-5.10-2024-01_r1.zip
+        status=$(curl -sL -w "%{http_code}" "$GKI_URL" -o /dev/null)
+        if [ "$status" = "200" ]; then
+            curl -Lo gki-kernel.zip "$GKI_URL"
+        else
+            echo "[+] $GKI_URL not found, using $FALLBACK_URL"
+            curl -Lo gki-kernel.zip "$FALLBACK_URL"
+        fi
+        unzip gki-kernel.zip && rm gki-kernel.zip
+        echo 'Unpack prebuilt boot.img'
+        $UNPACK_BOOTIMG --boot_img="./boot-5.10.img"                
+        echo 'Building boot.img'
+        $MKBOOTIMG --header_version 4 --kernel Image --output boot.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level ${{ inputs.patch_level }}
+        $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem
+        cp ./boot.img ./${{ github.event.inputs.TAG }}-boot.img
+    
+    - name: Prepare artifacts
+      run: |
+        OUTDIR=android-kernel/dist/
+        git clone https://github.com/Kernel-SU/AnyKernel3
+        rm -rf ./AnyKernel3/.git
+        cp $OUTDIR/Image ./AnyKernel3/
+    - name: Upload Boot
+      uses: actions/upload-artifact@v4
+      with:
+        name: Boot-${{ github.event.inputs.TAG }}
+        path: android-kernel/bootimgs/${{ github.event.inputs.TAG }}-boot*
+    - name: Upload AnyKernel3
+      uses: actions/upload-artifact@v4
+      with:
+        name: AnyKernel3-${{ github.event.inputs.TAG }}
+        path: ./AnyKernel3/*
