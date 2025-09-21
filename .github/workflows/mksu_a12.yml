@@ -25,7 +25,7 @@ on:
         options:
         - sukisu
         - ksunext
-        default: 'sukisu'
+        default: 'ksunext'
       mksu_version:
         required: true
         type: choice
@@ -33,7 +33,7 @@ on:
         options:
         - susfs-main
         - next
-        default: 'susfs-main'
+        default: 'next'
       mksu_kpm:
         required: true
         type: choice
@@ -41,7 +41,7 @@ on:
         options:
         - enable
         - disable
-        default: 'enable'
+        default: 'disable'
       manual_vfs_hook:
         required: true
         type: choice
