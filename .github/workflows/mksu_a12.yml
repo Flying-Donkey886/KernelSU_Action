@@ -129,7 +129,7 @@ jobs:
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
           if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
-            cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./
+            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./
             patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
             cd ..
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
