@@ -132,6 +132,7 @@ jobs:
             cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./
             patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
             cd ..
+            echo "CONFIG_KSU_MANUAL_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           else
