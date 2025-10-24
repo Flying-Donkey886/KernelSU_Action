@@ -8,7 +8,7 @@ on:
       patch_level:
         required: true
         type: string
-        default: "2024-11"
+        default: "2025-02"
         description: "设置内核补丁级别"
       kernel_name:
         required: true
@@ -121,6 +121,7 @@ jobs:
         else
           cd ./KernelSU
           sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
+          sed -i '/LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 245)/s/245/226/' kernel/sulog.h
           cd ..
         fi
         
