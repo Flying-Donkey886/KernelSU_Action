@@ -172,6 +172,7 @@ jobs:
         
         if [[ "${{ inputs.mksu_bbg }}" == "enable" ]]; then
           echo "CONFIG_BBG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' ./common/security/Kconfig
         fi
         echo "Adding configuration settings to gki_defconfig..."
         echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
