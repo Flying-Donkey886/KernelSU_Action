@@ -42,6 +42,14 @@ on:
         - enable
         - disable
         default: 'enable'
+      mksu_bbg:
+        required: true
+        type: choice
+        description: '是否开启防格机？'
+        options:
+        - enable
+        - disable
+        default: 'enable'
       manual_vfs_hook:
         required: true
         type: choice
@@ -90,6 +98,10 @@ jobs:
           sed -i 's/"${{ inputs.TAG }}"/"deprecated\/${{ inputs.TAG }}"/g' $DEFAULT_MANIFEST_PATH
         fi
         repo --trace sync -c -j$(nproc --all) --no-tags
+
+        if [[ "${{ inputs.mksu_bbg }}" == "enable" ]]; then
+          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
+        fi
 
         if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
           curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
@@ -156,6 +168,10 @@ jobs:
         
         if [[ "${{ inputs.mksu_kpm }}" == "enable" ]]; then
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+        fi
+        
+        if [[ "${{ inputs.mksu_bbg }}" == "enable" ]]; then
+          echo "CONFIG_BBG=y" >> ./common/arch/arm64/configs/gki_defconfig
         fi
         echo "Adding configuration settings to gki_defconfig..."
         echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
