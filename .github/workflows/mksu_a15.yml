@@ -4,7 +4,7 @@ on:
     inputs:
       TAG:
         required: true
-        default: "android15-6.6-lts"
+        default: "android15-6.6-2025-06"
       susfs_version:
         required: true
         type: string
@@ -12,44 +12,53 @@ on:
         description: "设置susfs分支"
       user_name:
         required: true
-        default: 'root'
+        default: 'kleaf'
         description: "自定义用户名称"
       host_name:
         required: true
-        default: 'GuimianNeko'
+        default: 'build-host'
         description: "自定义主机名称"
-      custom_time:
-        required: true
-        type: choice
-        description: '是否自定义构建时间？'
-        options:
-        - enable
-        - disable
-        default: 'disable'
       timestamp:
         required: true
-        default: 'Wed Aug 28 22:16:09 UTC 2024'
+        default: 'Mon Jun 23 07:30:57 UTC 2025'
         description: "自定义构建时间"
       kernel_name:
         required: true
-        default: '6.6.30-android15-8-geae86f166c48-abogki367569362-4k'
+        default: '6.6.89-android15-8-g14220ae4ce65-ab13680582-4k'
         description: "自定义内核名称"
       mksu_version:
         required: true
         type: choice
-        description: '选择mksu版本'
+        description: "选择mksu版本"
         options:
-        - SukiSU
         - SukiSU-Ultra
+        - Ksunext
         default: 'SukiSU-Ultra'
+      mksu_kpm:
+        required: true
+        type: choice
+        description: "是否开启KPM？"
+        options:
+        - enable
+        - disable
+        default: 'enable'
+      mksu_bbg:
+        required: true
+        type: choice
+        description: "是否开启防格机？"
+        options:
+        - enable
+        - disable
+        default: 'enable'
       manual_vfs_hook:
         required: true
         type: choice
-        description: '是否使用vfs hook'
+        description: "选择钩子类型"
         options:
-        - newhook
+        - syscall
+        - tracepoint
         - disable
-        default: 'newhook'
+        default: 'syscall'
       
 jobs:
   build:
@@ -79,6 +88,7 @@ jobs:
         cd $GITHUB_WORKSPACE
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b ${{ inputs.susfs_version }}
         git clone https://github.com/ShirkNeko/SukiSU_patch.git
+        git clone https://github.com/WildPlusKernel/kernel_patches.git
         git clone https://github.com/Guimianneko/qwq.git
         git config --global user.name "wizxy"
         git config --global user.email wizxy@users.noreply.github.com
@@ -94,28 +104,79 @@ jobs:
     - name: Setup KernelSU
       run: |
         cd $GITHUB_WORKSPACE/android-kernel
-        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
-        else
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/KernelSU/main/kernel/setup.sh" | bash -s susfs-dev
+        
+        if [[ "${{ inputs.mksu_bbg }}" == "enable" ]]; then
+          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
         fi
+
+        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+        else
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+        fi
+        
         cp ../susfs4ksu/kernel_patches/50_add_susfs_in_${{ inputs.susfs_version }}.patch ./common/
         cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
         cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+        if [[ "${{ inputs.mksu_version }}" == "Ksunext" ]]; then
+          cd ./KernelSU-Next
+          cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch ./
+          patch -p1 --forward < fix_apk_sign.c.patch
+              
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch ./
+          patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
+          
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch ./
+          patch -p1 --forward < fix_sucompat.c.patch
+
+          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
+          patch -p1 --forward < fix_kernel_compat.c.patch
+          cd ..
+        else
+          cd ./KernelSU
+          sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
+          cd ..
+        fi
+        
         cd ./common
         patch -p1 < 50_add_susfs_in_${{ inputs.susfs_version }}.patch || true
-        if [[ "${{ inputs.manual_vfs_hook }}" == "newhook" ]]; then
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          patch -p1 -F 3 < syscall_hooks.patch
+        
+        if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
+          if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+            cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
+            cd ..
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          else
+            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
+            cd ..
+            echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+        elif [[ "${{ inputs.manual_vfs_hook }}" == "tracepoint" ]]; then
+          cp ../../SukiSU_patch/hooks/sukisu_tracepoint_hooks_v1.1.patch ./
+          patch -p1 --forward < sukisu_tracepoint_hooks_v1.1.patch
           cd ..
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
         else
           cd ..
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
         fi
-        if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
+        
+        if [[ "${{ inputs.mksu_kpm }}" == "enable" ]]; then
           echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+        fi
+        
+        if [[ "${{ inputs.mksu_bbg }}" == "enable" ]]; then
+          echo "CONFIG_BBG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' ./common/security/Kconfig
         fi
         echo "Adding configuration settings to gki_defconfig..."
         echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -134,15 +195,6 @@ jobs:
         echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
         echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
         echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-        
-        # Add additional tmpfs config setting
-        echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
-        echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
-        
-        # Add additional config setting
-        echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-        echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-        echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
         
         sed -i '2s/check_defconfig//' ./common/build.config.gki
         sed -i '$s|echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"|echo "${{ inputs.kernel_name }}"|' ./common/scripts/setlocalversion
