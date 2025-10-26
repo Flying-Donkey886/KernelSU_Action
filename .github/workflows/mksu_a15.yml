@@ -146,7 +146,7 @@ jobs:
         patch -p1 < 50_add_susfs_in_${{ inputs.susfs_version }}.patch || true
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
-          if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
+          if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
             cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./
             patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
             cd ..
