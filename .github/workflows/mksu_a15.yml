@@ -124,16 +124,16 @@ jobs:
           cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
               
-          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch ./
+          cp ../../kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_apk_sign.c.patch ./
           patch -p1 --forward < fix_apk_sign.c.patch
               
-          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch ./
+          cp ../../kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_core_hook.c.patch ./
           patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
           
-          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch ./
+          cp ../../kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_sucompat.c.patch ./
           patch -p1 --forward < fix_sucompat.c.patch
 
-          cp ../../kernel_patches/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
+          cp ../../kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_kernel_compat.c.patch ./
           patch -p1 --forward < fix_kernel_compat.c.patch
           cd ..
         else
@@ -219,9 +219,7 @@ jobs:
         export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
         export KBUILD_BUILD_USER=${{ inputs.user_name }}
         export KBUILD_BUILD_HOST=${{ inputs.host_name }}
-        if [[ "${{ inputs.custom_time }}" == "enable" ]]; then
-          export KBUILD_BUILD_TIMESTAMP="${{ inputs.timestamp }}"
-        fi
+        export KBUILD_BUILD_TIMESTAMP="${{ inputs.timestamp }}"
         cd common
         make LLVM=1 LLVM_IAS=1 ARCH=arm64 CC="/usr/bin/ccache clang" HOSTCC="/usr/bin/ccache clang" HOSTCXX="/usr/bin/ccache clang++" O=out gki_defconfig
         scripts/config --file out/.config \
