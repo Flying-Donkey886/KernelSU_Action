@@ -133,7 +133,9 @@ jobs:
         else
           cd ./KernelSU
           sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
-          sed -i '/LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 245)/s/245/226/' kernel/sulog.h
+          if [[ "${{ inputs.TAG }}" == "android12-5.10-lts" ]]; then
+            sed -i '/LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 245)/s/245/226/' kernel/sulog.h
+          fi
           cd ..
         fi
         
