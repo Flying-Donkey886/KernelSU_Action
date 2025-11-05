@@ -138,7 +138,6 @@ jobs:
           cd ..
         else
           cd ./KernelSU
-          sed -i '/https:\/\/android-review.googlesource.com.*3725346/{N;d;}' kernel/selinux/rules.c
           cd ..
         fi
         
@@ -147,14 +146,14 @@ jobs:
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
           if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
-            cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./
-            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
+            cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.6.patch
             cd ..
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           else
-            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./
-            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.5.patch
+            cp ../../kernel_patches/next/scope_min_manual_hooks_v1.6.patch ./
+            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.6.patch
             cd ..
             echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
