@@ -132,6 +132,7 @@ jobs:
           cd ..
         else
           cd ./KernelSU
+          git checkout 343c645
           cd ..
         fi
         
