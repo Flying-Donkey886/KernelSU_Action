@@ -32,6 +32,7 @@ on:
         description: '选择mksu版本'
         options:
         - susfs-main
+        - susfs-test
         - next
         default: 'susfs-main'
       mksu_kpm:
@@ -56,9 +57,10 @@ on:
         description: '选择钩子类型'
         options:
         - syscall
+        - inline
         - tracepoint
         - disable
-        default: 'syscall'
+        default: 'inline'
 
 jobs:
   build:
@@ -152,6 +154,9 @@ jobs:
             echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           fi
+        elif [[ "${{ inputs.manual_vfs_hook }}" == "inline" ]]; then
+          cd ..
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
         elif [[ "${{ inputs.manual_vfs_hook }}" == "tracepoint" ]]; then
           cd ..
           echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
