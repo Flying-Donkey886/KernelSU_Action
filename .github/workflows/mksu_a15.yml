@@ -146,8 +146,6 @@ jobs:
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
           if [[ "${{ inputs.mksu_version }}" == "SukiSU-Ultra" ]]; then
-            cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./
-            patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.6.patch
             cd ..
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
