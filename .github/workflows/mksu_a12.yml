@@ -85,7 +85,7 @@ jobs:
         cd $GITHUB_WORKSPACE
         sudo apt-get install repo -y
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10
-        #cd susfs4ksu && git checkout 1bde70f7 && cd ..
+        cd susfs4ksu && git checkout 1bde70f7 && cd ..
         git clone https://github.com/ShirkNeko/SukiSU_patch.git
         git clone https://github.com/WildPlusKernel/kernel_patches.git
         git clone https://github.com/wizxy/patch.git
