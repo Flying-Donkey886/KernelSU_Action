@@ -31,10 +31,10 @@ on:
         type: choice
         description: '选择mksu版本'
         options:
-        - susfs-main
-        - susfs-test
+        - builtin
+        - tmp-builtin
         - next
-        default: 'susfs-main'
+        default: 'builtin'
       mksu_kpm:
         required: true
         type: choice
