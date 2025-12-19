@@ -140,6 +140,8 @@ jobs:
         
         cd ./common
         patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
+        cp ../../patch/zero.patch ./
+        patch -p1 --forward < zero.patch
         
         if [[ "${{ inputs.manual_vfs_hook }}" == "syscall" ]]; then
           if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
