@@ -23,6 +23,7 @@ on:
         type: choice
         description: '选择mksu类型'
         options:
+        - ksu
         - sukisu
         - ksunext
         default: 'sukisu'
@@ -31,6 +32,7 @@ on:
         type: choice
         description: '选择mksu版本'
         options:
+        - main
         - builtin
         - tmp-builtin
         - next
@@ -108,6 +110,8 @@ jobs:
 
         if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
           curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+        elif [[ "${{ inputs.mksu_variant }}" == "ksu" ]]; then
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
         else
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
         fi
@@ -133,6 +137,10 @@ jobs:
           cp ../../kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_kernel_compat.c.patch ./
           patch -p1 --forward < fix_kernel_compat.c.patch
           cd ..
+        elif [[ "${{ inputs.mksu_variant }}" == "ksu" ]]; then
+          cd ./KernelSU
+          cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
+          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
         else
           cd ./KernelSU
           cd ..
