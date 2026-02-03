@@ -109,7 +109,7 @@ jobs:
         fi
 
         if [[ "${{ inputs.mksu_variant }}" == "sukisu" ]]; then
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
+          curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
         elif [[ "${{ inputs.mksu_variant }}" == "ksu" ]]; then
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s ${{ inputs.mksu_version }}
         else
