@@ -4,7 +4,7 @@ on:
     inputs:
       TAG:
         required: true
-        default: "android12-5.10-2024-11"
+        default: "android12-5.10-2025-05"
       patch_level:
         required: true
         type: string
