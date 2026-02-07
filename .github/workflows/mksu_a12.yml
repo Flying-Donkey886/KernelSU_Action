@@ -8,7 +8,7 @@ on:
       patch_level:
         required: true
         type: string
-        default: "2025-02"
+        default: "2025-05"
         description: "设置内核补丁级别"
       kernel_name:
         required: true
@@ -16,7 +16,7 @@ on:
         description: "自定义内核名称"
       timestamp:
         required: true
-        default: 'Fri Jan 24 18:48:47 UTC 2025'
+        default: 'Tue Oct 21 03:03:12 UTC 2025'
         description: "自定义构建时间"
       mksu_variant:
         required: true
