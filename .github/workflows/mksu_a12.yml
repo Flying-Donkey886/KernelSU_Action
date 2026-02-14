@@ -201,7 +201,6 @@ jobs:
         echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
         
         sed -i '2s/check_defconfig//' ./common/build.config.gki
-        sed -i '0,/^SUBLEVEL *=.*/s//SUBLEVEL = 226/' ./common/Makefile
         sed -i '$s|echo "\$res"|echo "${{ inputs.kernel_name }}"|' ./common/scripts/setlocalversion
         perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT ${{ inputs.timestamp }}"}' ./common/scripts/mkcompile_h
         
